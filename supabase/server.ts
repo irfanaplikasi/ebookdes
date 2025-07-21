@@ -1,3 +1,4 @@
+// lib/supabase/server.ts
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -10,10 +11,9 @@ export const createClient = async () => {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll().map(({ name, value }) => ({
-            name,
-            value,
-          }));
+          const all = cookieStore.getAll();
+          console.log("SSR cookies:", all); // debug
+          return all.map(({ name, value }) => ({ name, value }));
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
@@ -21,11 +21,11 @@ export const createClient = async () => {
           });
         },
       },
-    },
+    }
   );
 };
 
-// Service role client for admin operations that bypass RLS
+// Hanya untuk keperluan admin (tanpa RLS)
 export const createServiceClient = () => {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,10 +35,8 @@ export const createServiceClient = () => {
         getAll() {
           return [];
         },
-        setAll() {
-          // No-op for service client
-        },
+        setAll() {},
       },
-    },
+    }
   );
 };
