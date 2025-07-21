@@ -16,6 +16,59 @@ export default async function Home() {
       <Navbar />
       <Hero />
 
+      {/* Quick Navigation Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Jelajahi Platform Kami</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Akses semua fitur dan halaman yang tersedia di EbookDes
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <Link href="/book" className="group">
+              <div className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 text-center">
+                <div className="text-blue-600 mb-4">
+                  <ArrowUpRight className="w-8 h-8 mx-auto" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 group-hover:text-blue-600 transition-colors">
+                  Koleksi E-book
+                </h3>
+                <p className="text-gray-600">
+                  Jelajahi koleksi lengkap e-book berkualitas tinggi
+                </p>
+              </div>
+            </Link>
+            <Link href="/about" className="group">
+              <div className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 text-center">
+                <div className="text-green-600 mb-4">
+                  <Users className="w-8 h-8 mx-auto" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 group-hover:text-green-600 transition-colors">
+                  Tentang Kami
+                </h3>
+                <p className="text-gray-600">
+                  Pelajari lebih lanjut tentang misi dan visi EbookDes
+                </p>
+              </div>
+            </Link>
+            <Link href="/contact" className="group">
+              <div className="bg-white p-8 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 text-center">
+                <div className="text-purple-600 mb-4">
+                  <CheckCircle2 className="w-8 h-8 mx-auto" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2 group-hover:text-purple-600 transition-colors">
+                  Hubungi Kami
+                </h3>
+                <p className="text-gray-600">
+                  Butuh bantuan? Tim kami siap membantu Anda
+                </p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* E-book Collection Section */}
       <section id="koleksi" className="py-24 bg-white">
         <div className="container mx-auto px-4">

@@ -18,6 +18,24 @@ export default async function Navbar() {
           EbookDes
         </Link>
         <div className="flex gap-4 items-center">
+          <Link
+            href="/book"
+            className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+          >
+            E-book
+          </Link>
+          <Link
+            href="/about"
+            className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+          >
+            Tentang
+          </Link>
+          <Link
+            href="/contact"
+            className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+          >
+            Kontak
+          </Link>
           {user ? (
             <>
               <Link href="/dashboard">

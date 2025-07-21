@@ -61,6 +61,33 @@ export type Database = {
           },
         ]
       }
+      page_contents: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          page_type: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          page_type: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          page_type?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       reading_progress: {
         Row: {
           current_page: number | null
