@@ -11,17 +11,8 @@ import {
   Eye,
   Settings,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { createClient } from "../../../supabase/client";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -30,6 +21,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { createClient } from "../../../supabase/client";
+import { createServiceClient } from "../../../supabase/server";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +53,7 @@ import {
   updateEbookAction,
   deleteEbookAction,
   makeUserAdminAction,
+  updatePageContentAction,
 } from "../actions";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -79,40 +82,95 @@ export default function Dashboard() {
       setUser(user);
 
       // Get user role
-      const { data: userRole } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .single();
+      try {
+        const { data: userRole, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .single();
 
-      const adminStatus = userRole?.role === "admin";
-      setIsAdmin(adminStatus);
+        if (roleError) {
+          console.log(
+            "No user role found, user is not admin:",
+            roleError.message,
+          );
+          setIsAdmin(false);
+        } else {
+          const adminStatus = userRole?.role === "admin";
+          console.log("User role:", userRole?.role, "Is admin:", adminStatus);
+          setIsAdmin(adminStatus);
+        }
+      } catch (error) {
+        console.error("Error checking user role:", error);
+        setIsAdmin(false);
+      }
 
-      // Get e-books
-      const { data: ebooksData } = await supabase
-        .from("ebooks")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Get e-books with better error handling - use service client to bypass RLS
+      try {
+        console.log("Fetching ebooks from Supabase...");
+        console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+        console.log("Supabase client initialized:", !!supabase);
 
-      setEbooks(ebooksData || []);
+        // Use service client for ebooks to bypass RLS
+        const serviceSupabase = createClient();
+        const { data: ebooksData, error: ebooksError } = await serviceSupabase
+          .from("ebooks")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        console.log("Supabase ebooks response:", {
+          data: ebooksData,
+          error: ebooksError,
+          dataLength: ebooksData?.length,
+        });
+
+        if (ebooksError) {
+          console.error("Error fetching ebooks:", ebooksError);
+          console.error(
+            "Error details:",
+            ebooksError.message,
+            ebooksError.details,
+            ebooksError.hint,
+            ebooksError.code,
+          );
+          setEbooks([]);
+        } else {
+          console.log("Ebooks data received:", ebooksData);
+          console.log("Number of ebooks:", ebooksData?.length || 0);
+          setEbooks(ebooksData || []);
+        }
+      } catch (error) {
+        console.error("Exception fetching ebooks:", error);
+        setEbooks([]);
+      }
 
       // Get reading progress for current user
-      const { data: progressData } = await supabase
-        .from("reading_progress")
-        .select(
-          `
-          *,
-          ebooks (
-            id,
-            title,
-            author,
-            cover_image_url
+      try {
+        const { data: progressData, error: progressError } = await supabase
+          .from("reading_progress")
+          .select(
+            `
+            *,
+            ebooks (
+              id,
+              title,
+              author,
+              cover_image_url
+            )
+          `,
           )
-        `,
-        )
-        .eq("user_id", user.id);
+          .eq("user_id", user.id);
 
-      setReadingProgress(progressData || []);
+        if (progressError) {
+          console.error("Error fetching reading progress:", progressError);
+          setReadingProgress([]);
+        } else {
+          setReadingProgress(progressData || []);
+        }
+      } catch (error) {
+        console.error("Exception fetching reading progress:", error);
+        setReadingProgress([]);
+      }
       setLoading(false);
     };
 
@@ -126,10 +184,14 @@ export default function Dashboard() {
 
     const formData = new FormData();
     formData.append("id", ebookId);
-    await deleteEbookAction(formData);
-
-    // Refresh the page
-    window.location.reload();
+    try {
+      await deleteEbookAction(formData);
+      // Refresh the page
+      window.location.reload();
+    } catch (error) {
+      console.error("Error deleting ebook:", error);
+      alert("Gagal menghapus e-book. Silakan coba lagi.");
+    }
   };
 
   if (loading) {
@@ -154,14 +216,6 @@ export default function Dashboard() {
           <header className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold">Perpustakaan Saya</h1>
-              {!isAdmin && (
-                <form action={makeUserAdminAction}>
-                  <Button type="submit" variant="outline" size="sm">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Jadikan Admin
-                  </Button>
-                </form>
-              )}
             </div>
             <div className="bg-blue-50 text-sm p-3 px-4 rounded-lg text-blue-700 flex gap-2 items-center">
               <InfoIcon size="14" />
@@ -170,6 +224,12 @@ export default function Dashboard() {
                 {isAdmin
                   ? " Anda memiliki akses admin untuk mengelola e-book."
                   : " Nikmati koleksi e-book yang tersedia."}
+                {process.env.NODE_ENV === "development" && (
+                  <span className="ml-2 text-xs opacity-75">
+                    (Debug: {ebooks.length} ebooks loaded, Admin:{" "}
+                    {isAdmin ? "Yes" : "No"})
+                  </span>
+                )}
               </span>
             </div>
           </header>
@@ -222,20 +282,197 @@ export default function Dashboard() {
             </section>
           )}
 
-          {/* E-books Collection */}
-          <section className="bg-white rounded-xl p-6 border shadow-sm">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                Koleksi E-book
+          {/* Admin Settings Menu */}
+          {isAdmin && (
+            <section className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-purple-800">
+                <Settings className="w-5 h-5" />
+                Menu Admin - Pengaturan Aplikasi
               </h2>
-              {isAdmin && (
+              <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Tambah E-book
-                    </Button>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer border-purple-200 bg-purple-50">
+                      <CardContent className="p-4 text-center">
+                        <Settings className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                        <h3 className="font-semibold text-purple-800">
+                          Pengaturan Halaman Utama
+                        </h3>
+                        <p className="text-sm text-purple-600">
+                          Ubah nama aplikasi, konten, dan informasi lainnya
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Pengaturan Halaman Utama</DialogTitle>
+                      <DialogDescription>
+                        Ubah konten yang ditampilkan di halaman utama aplikasi.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form
+                      action={updatePageContentAction}
+                      className="space-y-4"
+                    >
+                      <input type="hidden" name="page_type" value="homepage" />
+                      <div className="space-y-2">
+                        <Label htmlFor="app_name">Nama Aplikasi</Label>
+                        <Input
+                          name="app_name"
+                          placeholder="EbookDes"
+                          defaultValue="EbookDes"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="hero_title">Judul Hero</Label>
+                        <Input
+                          name="hero_title"
+                          placeholder="Baca E-book Favorit Anda Kapan Saja"
+                          defaultValue="Baca E-book Favorit Anda Kapan Saja"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="hero_description">Deskripsi Hero</Label>
+                        <Textarea
+                          name="hero_description"
+                          placeholder="Platform pembaca e-book terlengkap di Indonesia..."
+                          defaultValue="Platform pembaca e-book terlengkap di Indonesia. Nikmati ribuan koleksi buku digital dengan pengalaman membaca yang nyaman dan mudah."
+                          rows={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="features_title">Judul Fitur</Label>
+                        <Input
+                          name="features_title"
+                          placeholder="Mengapa Memilih EbookDes?"
+                          defaultValue="Mengapa Memilih EbookDes?"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_email">Email Kontak</Label>
+                        <Input
+                          name="contact_email"
+                          placeholder="support@ebookdes.com"
+                          defaultValue="support@ebookdes.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_phone">Telepon Kontak</Label>
+                        <Input
+                          name="contact_phone"
+                          placeholder="+62 21 1234 5678"
+                          defaultValue="+62 21 1234 5678"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_address">Alamat</Label>
+                        <Textarea
+                          name="contact_address"
+                          placeholder="Jl. Teknologi Digital No. 123, Jakarta Selatan"
+                          defaultValue="Jl. Teknologi Digital No. 123, Jakarta Selatan, DKI Jakarta 12345, Indonesia"
+                          rows={2}
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Simpan Pengaturan
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer border-indigo-200 bg-indigo-50">
+                      <CardContent className="p-4 text-center">
+                        <Edit className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
+                        <h3 className="font-semibold text-indigo-800">
+                          Pengaturan Halaman Tentang
+                        </h3>
+                        <p className="text-sm text-indigo-600">
+                          Ubah konten halaman tentang kami
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Pengaturan Halaman Tentang</DialogTitle>
+                      <DialogDescription>
+                        Ubah konten yang ditampilkan di halaman tentang kami.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form
+                      action={updatePageContentAction}
+                      className="space-y-4"
+                    >
+                      <input type="hidden" name="page_type" value="about" />
+                      <div className="space-y-2">
+                        <Label htmlFor="about_title">Judul Halaman</Label>
+                        <Input
+                          name="about_title"
+                          placeholder="Tentang EbookDes"
+                          defaultValue="Tentang EbookDes"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="about_description">Deskripsi</Label>
+                        <Textarea
+                          name="about_description"
+                          placeholder="Platform pembaca e-book digital pertama di Indonesia..."
+                          defaultValue="Platform pembaca e-book digital pertama di Indonesia yang didedikasikan untuk menyediakan akses mudah dan nyaman ke ribuan buku berkualitas dalam bahasa Indonesia."
+                          rows={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="mission">Misi</Label>
+                        <Textarea
+                          name="mission"
+                          placeholder="Menyediakan platform digital yang mudah diakses..."
+                          defaultValue="Menyediakan platform digital yang mudah diakses untuk membaca e-book berkualitas tinggi, mendukung literasi digital di Indonesia, dan memberikan pengalaman membaca yang menyenangkan bagi semua kalangan."
+                          rows={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="vision">Visi</Label>
+                        <Textarea
+                          name="vision"
+                          placeholder="Menjadi platform e-book terdepan di Indonesia..."
+                          defaultValue="Menjadi platform e-book terdepan di Indonesia yang menghubungkan pembaca dengan konten berkualitas, mendorong budaya membaca, dan mendukung perkembangan industri penerbitan digital Indonesia."
+                          rows={3}
+                        />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        Simpan Pengaturan
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </section>
+          )}
+
+          {/* Admin E-book CRUD Menu */}
+          {isAdmin && (
+            <section className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-blue-800">
+                <BookOpen className="w-5 h-5" />
+                Menu Admin - Kelola E-book
+              </h2>
+              <div className="grid md:grid-cols-3 gap-4">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer border-green-200 bg-green-50">
+                      <CardContent className="p-4 text-center">
+                        <Plus className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                        <h3 className="font-semibold text-green-800">
+                          Tambah E-book
+                        </h3>
+                        <p className="text-sm text-green-600">
+                          Tambah e-book baru ke koleksi
+                        </p>
+                      </CardContent>
+                    </Card>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
@@ -280,6 +517,48 @@ export default function Dashboard() {
                     </form>
                   </DialogContent>
                 </Dialog>
+
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-4 text-center">
+                    <Edit className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                    <h3 className="font-semibold text-blue-800">Edit E-book</h3>
+                    <p className="text-sm text-blue-600">
+                      Pilih e-book di bawah untuk mengedit
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="p-4 text-center">
+                    <Trash2 className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                    <h3 className="font-semibold text-red-800">Hapus E-book</h3>
+                    <p className="text-sm text-red-600">
+                      Pilih e-book di bawah untuk menghapus
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>Petunjuk:</strong> Gunakan tombol di atas untuk
+                  menambah e-book baru. Untuk mengedit atau menghapus, gunakan
+                  tombol aksi pada setiap e-book di koleksi di bawah.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* E-books Collection */}
+          <section className="bg-white rounded-xl p-6 border shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Koleksi E-book
+              </h2>
+              {isAdmin && (
+                <div className="text-sm text-gray-500">
+                  Total: {ebooks.length} e-book
+                </div>
               )}
             </div>
 

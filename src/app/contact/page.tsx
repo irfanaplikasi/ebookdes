@@ -19,10 +19,13 @@ import {
   HelpCircle,
   Users,
 } from "lucide-react";
+import Navbar from "@/components/navbar";
+import Footer from "@/components/footer";
 
 export default function ContactPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
+      <Navbar />
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-16">
@@ -259,6 +262,7 @@ export default function ContactPage() {
           </Card>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

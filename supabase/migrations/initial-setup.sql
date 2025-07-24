@@ -37,32 +37,35 @@ $$;
 
 -- Create a function that will be triggered when a new user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 BEGIN
-  INSERT INTO public.users (
-    id,
-    user_id,
-    email,
-    name,
-    full_name,
-    avatar_url,
-    token_identifier,
-    created_at,
-    updated_at
-  ) VALUES (
-    NEW.id,
-    NEW.id::text,
-    NEW.email,
-    NEW.raw_user_meta_data->>'name',
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'avatar_url',
-    NEW.email,
-    NEW.created_at,
-    NEW.updated_at
-  );
+  -- Check if user already exists to prevent duplicate key error
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = NEW.id) THEN
+    INSERT INTO public.users (
+      id,
+      user_id,
+      email,
+      name,
+      full_name,
+      avatar_url,
+      token_identifier,
+      created_at,
+      updated_at
+    ) VALUES (
+      NEW.id,
+      NEW.id::text,
+      NEW.email,
+      COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', ''),
+      COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''),
+      NEW.raw_user_meta_data->>'avatar_url',
+      COALESCE(NEW.email, NEW.id::text),
+      NEW.created_at,
+      NEW.updated_at
+    );
+  END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create a trigger to call the function when a new user is added to auth.users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;

@@ -42,39 +42,8 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", error.message);
   }
 
-  if (user) {
-    try {
-      // Use service client to bypass RLS for initial user creation
-      const serviceSupabase = createServiceClient();
-
-      // Check if user already exists to prevent duplicate key error
-      const { data: existingUser } = await serviceSupabase
-        .from("users")
-        .select("id")
-        .eq("id", user.id)
-        .single();
-
-      if (!existingUser) {
-        const { error: updateError } = await serviceSupabase
-          .from("users")
-          .insert({
-            id: user.id,
-            name: fullName,
-            full_name: fullName,
-            email: email,
-            user_id: user.id,
-            token_identifier: user.id,
-            created_at: new Date().toISOString(),
-          });
-
-        if (updateError) {
-          console.error("Error updating user profile:", updateError);
-        }
-      }
-    } catch (err) {
-      console.error("Error in user profile creation:", err);
-    }
-  }
+  // User creation is now handled by the database trigger
+  // No need to manually insert into users table
 
   return encodedRedirect(
     "success",
@@ -389,29 +358,14 @@ export const updateReadingProgressAction = async (formData: FormData) => {
 };
 
 export const makeUserAdminAction = async (formData: FormData) => {
-  const serviceSupabase = createServiceClient();
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return encodedRedirect("error", "/dashboard", "Unauthorized");
-  }
-
-  const userId = formData.get("user_id")?.toString() || user.id;
-
-  const { error } = await serviceSupabase.from("user_roles").upsert({
-    user_id: userId,
-    role: "admin",
-  });
-
-  if (error) {
-    return encodedRedirect("error", "/dashboard", "Failed to make user admin");
-  }
-
-  return encodedRedirect("success", "/dashboard", "User is now an admin");
+  // This function is disabled for security reasons
+  // Admin users are now created automatically for the first registered user
+  // or through database management
+  return encodedRedirect(
+    "error",
+    "/dashboard",
+    "Admin creation through UI is disabled for security reasons",
+  );
 };
 
 export const updatePageContentAction = async (formData: FormData) => {
@@ -442,15 +396,22 @@ export const updatePageContentAction = async (formData: FormData) => {
   }
 
   const pageType = formData.get("page_type")?.toString();
-  const content = formData.get("content")?.toString();
 
-  if (!pageType || !content) {
-    return encodedRedirect(
-      "error",
-      "/dashboard",
-      "Page type and content are required",
-    );
+  if (!pageType) {
+    return encodedRedirect("error", "/dashboard", "Page type is required");
   }
+
+  // Build content object from form data
+  const contentData: any = {};
+
+  // Get all form entries and build content object
+  for (const [key, value] of formData.entries()) {
+    if (key !== "page_type" && value) {
+      contentData[key] = value.toString();
+    }
+  }
+
+  const content = JSON.stringify(contentData);
 
   const { error } = await serviceSupabase.from("page_contents").upsert({
     page_type: pageType,
@@ -470,6 +431,6 @@ export const updatePageContentAction = async (formData: FormData) => {
   return encodedRedirect(
     "success",
     "/dashboard",
-    `${pageType} page updated successfully`,
+    `Pengaturan ${pageType} berhasil diperbarui`,
   );
 };
