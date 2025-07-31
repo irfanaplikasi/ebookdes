@@ -357,6 +357,55 @@ export const updateReadingProgressAction = async (formData: FormData) => {
   return { success: true };
 };
 
+export const signInWithGoogleAction = async () => {
+  const supabase = await createClient();
+  const origin = headers().get("origin");
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/api/auth/google`,
+      },
+    });
+
+    if (error) {
+      console.error("Google OAuth Error:", error);
+
+      // Handle specific Google OAuth errors
+      if (
+        error.message.includes("provider is not enabled") ||
+        error.message.includes("Unsupported provider") ||
+        error.message.includes("Invalid provider")
+      ) {
+        // Return error object instead of redirect for client-side handling
+        return {
+          error:
+            "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
+        };
+      }
+
+      return {
+        error: error.message || "Terjadi kesalahan saat masuk dengan Google",
+      };
+    }
+
+    if (data.url) {
+      return redirect(data.url);
+    }
+
+    return {
+      error: "Gagal mengarahkan ke Google Sign-In",
+    };
+  } catch (error: any) {
+    console.error("Google Sign-In Exception:", error);
+    return {
+      error:
+        "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
+    };
+  }
+};
+
 export const makeUserAdminAction = async (formData: FormData) => {
   // This function is disabled for security reasons
   // Admin users are now created automatically for the first registered user

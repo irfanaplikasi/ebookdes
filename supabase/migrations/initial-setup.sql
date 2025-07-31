@@ -1,5 +1,3 @@
--- Combined migration file that includes all necessary database setup
-
 -- Users table
 CREATE TABLE IF NOT EXISTS public.users (
     id uuid PRIMARY KEY NOT NULL,
@@ -14,32 +12,10 @@ CREATE TABLE IF NOT EXISTS public.users (
     full_name text
 );
 
--- Add RLS (Row Level Security) policies
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-
--- Create policies if they don't exist
-DO $$
-BEGIN
-    -- Check if the policy for users exists
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = 'public' 
-        AND tablename = 'users' 
-        AND policyname = 'Users can view own data'
-    ) THEN
-        -- Create policy to allow users to see only their own data
-        EXECUTE 'CREATE POLICY "Users can view own data" ON public.users
-                FOR SELECT USING (auth.uid()::text = user_id)';
-    END IF;
-
-END
-$$;
-
 -- Create a function that will be triggered when a new user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $
 BEGIN
-  -- Check if user already exists to prevent duplicate key error
   IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = NEW.id) THEN
     INSERT INTO public.users (
       id,
@@ -64,33 +40,14 @@ BEGIN
     );
   END IF;
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NEW;
 END;
 $ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create a trigger to call the function when a new user is added to auth.users
+-- Create trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- Update the function to handle user updates as well
-CREATE OR REPLACE FUNCTION public.handle_user_update()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE public.users
-  SET
-    email = NEW.email,
-    name = NEW.raw_user_meta_data->>'name',
-    full_name = NEW.raw_user_meta_data->>'full_name',
-    avatar_url = NEW.raw_user_meta_data->>'avatar_url',
-    updated_at = NEW.updated_at
-  WHERE user_id = NEW.id::text;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create a trigger to call the function when a user is updated in auth.users
-DROP TRIGGER IF EXISTS on_auth_user_updated ON auth.users;
-CREATE TRIGGER on_auth_user_updated
-  AFTER UPDATE ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_user_update(); 
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user(); 
