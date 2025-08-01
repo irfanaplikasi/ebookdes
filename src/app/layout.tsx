@@ -4,8 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ReduxProvider } from "@/components/redux-provider";
 import { Toaster } from "@/components/ui/toaster";
-import Script from "next/script"; // Tambahkan ini
-import TempoInit from "@/components/tempo-init"; // Asumsi ini adalah komponen kamu
+import Script from "next/script";
+import TempoInit from "@/components/tempo-init"; // pastikan komponen ini ada
 
 const inter = Inter({ subsets: ["latin"] });
 
