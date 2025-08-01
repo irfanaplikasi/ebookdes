@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ReduxProvider } from "@/components/redux-provider";
 import { Toaster } from "@/components/ui/toaster";
+import Script from "next/script"; // Tambahkan ini
+import TempoInit from "@/components/tempo-init"; // Asumsi ini adalah komponen kamu
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,15 +36,6 @@ export default function RootLayout({
           </ThemeProvider>
         </ReduxProvider>
         <TempoInit />
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
       </body>
     </html>
   );
