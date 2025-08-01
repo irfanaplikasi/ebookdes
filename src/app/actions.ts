@@ -42,39 +42,8 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", error.message);
   }
 
-  if (user) {
-    try {
-      // Use service client to bypass RLS for initial user creation
-      const serviceSupabase = createServiceClient();
-
-      // Check if user already exists to prevent duplicate key error
-      const { data: existingUser } = await serviceSupabase
-        .from("users")
-        .select("id")
-        .eq("id", user.id)
-        .single();
-
-      if (!existingUser) {
-        const { error: updateError } = await serviceSupabase
-          .from("users")
-          .insert({
-            id: user.id,
-            name: fullName,
-            full_name: fullName,
-            email: email,
-            user_id: user.id,
-            token_identifier: user.id,
-            created_at: new Date().toISOString(),
-          });
-
-        if (updateError) {
-          console.error("Error updating user profile:", updateError);
-        }
-      }
-    } catch (err) {
-      console.error("Error in user profile creation:", err);
-    }
-  }
+  // User creation is now handled by the database trigger
+  // No need to manually insert into users table
 
   return encodedRedirect(
     "success",
@@ -388,9 +357,70 @@ export const updateReadingProgressAction = async (formData: FormData) => {
   return { success: true };
 };
 
-export const makeUserAdminAction = async (formData: FormData) => {
-  const serviceSupabase = createServiceClient();
+export const signInWithGoogleAction = async () => {
   const supabase = await createClient();
+  const origin = headers().get("origin");
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/api/auth/google`,
+      },
+    });
+
+    if (error) {
+      console.error("Google OAuth Error:", error);
+
+      // Handle specific Google OAuth errors
+      if (
+        error.message.includes("provider is not enabled") ||
+        error.message.includes("Unsupported provider") ||
+        error.message.includes("Invalid provider")
+      ) {
+        // Return error object instead of redirect for client-side handling
+        return {
+          error:
+            "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
+        };
+      }
+
+      return {
+        error: error.message || "Terjadi kesalahan saat masuk dengan Google",
+      };
+    }
+
+    if (data.url) {
+      return redirect(data.url);
+    }
+
+    return {
+      error: "Gagal mengarahkan ke Google Sign-In",
+    };
+  } catch (error: any) {
+    console.error("Google Sign-In Exception:", error);
+    return {
+      error:
+        "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
+    };
+  }
+};
+
+export const makeUserAdminAction = async (formData: FormData) => {
+  // This function is disabled for security reasons
+  // Admin users are now created automatically for the first registered user
+  // or through database management
+  return encodedRedirect(
+    "error",
+    "/dashboard",
+    "Admin creation through UI is disabled for security reasons",
+  );
+};
+
+
+export const updatePageContentAction = async (formData: FormData) => {
+  const supabase = await createClient();
+  const serviceSupabase = createServiceClient();
 
   const {
     data: { user },
@@ -400,16 +430,57 @@ export const makeUserAdminAction = async (formData: FormData) => {
     return encodedRedirect("error", "/dashboard", "Unauthorized");
   }
 
-  const userId = formData.get("user_id")?.toString() || user.id;
+  // Check if user is admin
+  const { data: userRole } = await serviceSupabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
 
-  const { error } = await serviceSupabase.from("user_roles").upsert({
-    user_id: userId,
-    role: "admin",
+  if (userRole?.role !== "admin") {
+    return encodedRedirect(
+      "error",
+      "/dashboard",
+      "Access denied. Admin role required.",
+    );
+  }
+
+  const pageType = formData.get("page_type")?.toString();
+
+  if (!pageType) {
+    return encodedRedirect("error", "/dashboard", "Page type is required");
+  }
+
+  // Build content object from form data
+  const contentData: any = {};
+
+  // Get all form entries and build content object
+  for (const [key, value] of formData.entries()) {
+    if (key !== "page_type" && value) {
+      contentData[key] = value.toString();
+    }
+  }
+
+  const content = JSON.stringify(contentData);
+
+  const { error } = await serviceSupabase.from("page_contents").upsert({
+    page_type: pageType,
+    content: content,
+    updated_by: user.id,
+    updated_at: new Date().toISOString(),
   });
 
   if (error) {
-    return encodedRedirect("error", "/dashboard", "Failed to make user admin");
+    return encodedRedirect(
+      "error",
+      "/dashboard",
+      "Failed to update page content",
+    );
   }
 
-  return encodedRedirect("success", "/dashboard", "User is now an admin");
+  return encodedRedirect(
+    "success",
+    "/dashboard",
+    `Pengaturan ${pageType} berhasil diperbarui`,
+  );
 };

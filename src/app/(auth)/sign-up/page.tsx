@@ -2,6 +2,7 @@ import { FormMessage, Message } from "@/components/form-message";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
 import { signUpAction } from "@/app/actions";
@@ -28,7 +29,9 @@ export default async function Signup(props: {
           <UrlProvider>
             <form className="flex flex-col space-y-6">
               <div className="space-y-2 text-center">
-                <h1 className="text-3xl font-semibold tracking-tight">Sign up</h1>
+                <h1 className="text-3xl font-semibold tracking-tight">
+                  Sign up
+                </h1>
                 <p className="text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Link
@@ -92,6 +95,19 @@ export default async function Signup(props: {
               >
                 Sign up
               </SubmitButton>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Atau
+                  </span>
+                </div>
+              </div>
+
+              <GoogleSignInButton>Daftar dengan Google</GoogleSignInButton>
 
               <FormMessage message={searchParams} />
             </form>

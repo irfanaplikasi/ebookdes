@@ -1,0 +1,2 @@
+-- This migration has been consolidated into initial-setup.sql
+-- No additional changes needed here
