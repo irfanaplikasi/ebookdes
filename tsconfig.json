@@ -18,7 +18,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "downlevelIteration": true,                // ✅ tambahkan ini untuk dukung for...of di iterable
+    "downlevelIteration": true,
     "plugins": [
       {
         "name": "next"
