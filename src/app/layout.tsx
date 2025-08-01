@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Script from "next/script";
-import { TempoInit } from "@/components/tempo-init";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ReduxProvider } from "@/components/redux-provider";
 import { Toaster } from "@/components/ui/toaster";
@@ -36,6 +34,15 @@ export default function RootLayout({
           </ThemeProvider>
         </ReduxProvider>
         <TempoInit />
+      <body className={inter.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
