@@ -1,8 +1,5 @@
 {
-  "build": {
-    "env": {
-      "NODE_ENV": "production"
-    }
-  },
-  "output": "server"
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
 }
