@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Script from "next/script";
-import { TempoInit } from "@/components/tempo-init";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ReduxProvider } from "@/components/redux-provider";
 import { Toaster } from "@/components/ui/toaster";
+import Script from "next/script";
+import TempoInit from "@/components/tempo-init";
 
 const inter = Inter({ subsets: ["latin"] });
 

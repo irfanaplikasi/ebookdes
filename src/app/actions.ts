@@ -417,6 +417,7 @@ export const makeUserAdminAction = async (formData: FormData) => {
   );
 };
 
+
 export const updatePageContentAction = async (formData: FormData) => {
   const supabase = await createClient();
   const serviceSupabase = createServiceClient();

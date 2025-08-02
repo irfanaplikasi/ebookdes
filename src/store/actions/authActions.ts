@@ -17,7 +17,6 @@ export const signInWithGoogle = createAsyncThunk(
       if (error) {
         console.error("Google OAuth Redux Error:", error);
 
-        // Handle specific Google OAuth errors
         if (
           error.message.includes("provider is not enabled") ||
           error.message.includes("Unsupported provider") ||
@@ -28,19 +27,20 @@ export const signInWithGoogle = createAsyncThunk(
             "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
           );
         }
+
         return rejectWithValue(
           error.message || "Terjadi kesalahan saat masuk dengan Google",
         );
       }
 
       return data;
-    } catch (error: any) {
-      console.error("Google Sign-In Redux Exception:", error);
+    } catch (err) {
+      console.error("Google Sign-In Redux Exception:", err);
       return rejectWithValue(
         "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
       );
     }
-  },
+  }
 );
 
 export const signOut = createAsyncThunk(
@@ -55,13 +55,13 @@ export const signOut = createAsyncThunk(
       }
 
       return true;
-    } catch (error) {
-      return rejectWithValue("Failed to sign out");
+    } catch (err) {
+      return rejectWithValue("Gagal keluar dari akun.");
     }
-  },
+  }
 );
 
-export const getCurrentUser = createAsyncThunk(
+export const getCurrentUser = createAsyncThunk<User | null, void>(
   "auth/getCurrentUser",
   async (_, { rejectWithValue }) => {
     try {
@@ -79,7 +79,6 @@ export const getCurrentUser = createAsyncThunk(
         return null;
       }
 
-      // Get user role
       const { data: userRole } = await supabase
         .from("user_roles")
         .select("role")
@@ -88,15 +87,16 @@ export const getCurrentUser = createAsyncThunk(
 
       const userData: User = {
         id: user.id,
-        email: user.email,
+        email: user.email ?? null, // ✅ diperbaiki untuk hindari error tipe
         full_name: user.user_metadata?.full_name || null,
         avatar_url: user.user_metadata?.avatar_url || null,
         role: userRole?.role || "user",
       };
 
       return userData;
-    } catch (error) {
-      return rejectWithValue("Failed to get current user");
+    } catch (err) {
+      console.error("Get current user error:", err);
+      return rejectWithValue("Gagal mendapatkan data pengguna.");
     }
-  },
+  }
 );
