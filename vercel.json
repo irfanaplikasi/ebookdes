@@ -1,14 +1,3 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-<<<<<<< HEAD
   "framework": "nextjs"
-=======
-  "framework": "nextjs",
-  "functions": {
-    "src/app/**/*.tsx": {
-      "runtime": "nodejs18.x"
-    }
-  }
->>>>>>> 4d10b71175b434dbce985039c894564c3afd64cb
 }
