@@ -3,7 +3,6 @@
 import DashboardNavbar from "@/components/dashboard-navbar";
 import {
   InfoIcon,
-  UserCircle,
   BookOpen,
   Plus,
   Edit,
@@ -24,13 +23,11 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../supabase/client";
-import { createServiceClient } from "../../../supabase/server";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,7 +49,6 @@ import {
   createEbookAction,
   updateEbookAction,
   deleteEbookAction,
-  makeUserAdminAction,
   updatePageContentAction,
 } from "../actions";
 import Link from "next/link";
@@ -65,24 +61,28 @@ export default function Dashboard() {
   const [ebooks, setEbooks] = useState<any[]>([]);
   const [readingProgress, setReadingProgress] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
       const supabase = createClient();
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        router.push("/sign-in");
-        return;
-      }
-
-      setUser(user);
-
-      // Get user role
       try {
+        // Get user
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Error fetching user:", userError?.message);
+          router.push("/sign-in");
+          return;
+        }
+
+        setUser(user);
+
+        // Get user role
         const { data: userRole, error: roleError } = await supabase
           .from("user_roles")
           .select("role")
@@ -90,62 +90,35 @@ export default function Dashboard() {
           .single();
 
         if (roleError) {
-          console.log(
-            "No user role found, user is not admin:",
-            roleError.message,
-          );
+          console.error("Error fetching user role:", roleError.message);
           setIsAdmin(false);
         } else {
           const adminStatus = userRole?.role === "admin";
           console.log("User role:", userRole?.role, "Is admin:", adminStatus);
           setIsAdmin(adminStatus);
         }
-      } catch (error) {
-        console.error("Error checking user role:", error);
-        setIsAdmin(false);
-      }
 
-      // Get e-books with better error handling - use service client to bypass RLS
-      try {
-        console.log("Fetching ebooks from Supabase...");
-        console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-        console.log("Supabase client initialized:", !!supabase);
-
-        // Use service client for ebooks to bypass RLS
-        const serviceSupabase = createClient();
-        const { data: ebooksData, error: ebooksError } = await serviceSupabase
+        // Get e-books
+        const { data: ebooksData, error: ebooksError } = await supabase
           .from("ebooks")
           .select("*")
           .order("created_at", { ascending: false });
 
-        console.log("Supabase ebooks response:", {
-          data: ebooksData,
-          error: ebooksError,
-          dataLength: ebooksData?.length,
-        });
-
         if (ebooksError) {
-          console.error("Error fetching ebooks:", ebooksError);
-          console.error(
-            "Error details:",
-            ebooksError.message,
-            ebooksError.details,
-            ebooksError.hint,
-            ebooksError.code,
-          );
+          console.error("Error fetching ebooks:", {
+            message: ebooksError.message,
+            details: ebooksError.details,
+            hint: ebooksError.hint,
+            code: ebooksError.code,
+          });
+          setError("Gagal memuat e-book. Silakan coba lagi.");
           setEbooks([]);
         } else {
-          console.log("Ebooks data received:", ebooksData);
-          console.log("Number of ebooks:", ebooksData?.length || 0);
+          console.log("Ebooks fetched:", ebooksData?.length || 0);
           setEbooks(ebooksData || []);
         }
-      } catch (error) {
-        console.error("Exception fetching ebooks:", error);
-        setEbooks([]);
-      }
 
-      // Get reading progress for current user
-      try {
+        // Get reading progress
         const { data: progressData, error: progressError } = await supabase
           .from("reading_progress")
           .select(
@@ -157,21 +130,22 @@ export default function Dashboard() {
               author,
               cover_image_url
             )
-          `,
+          `
           )
           .eq("user_id", user.id);
 
         if (progressError) {
-          console.error("Error fetching reading progress:", progressError);
+          console.error("Error fetching reading progress:", progressError.message);
           setReadingProgress([]);
         } else {
           setReadingProgress(progressData || []);
         }
       } catch (error) {
-        console.error("Exception fetching reading progress:", error);
-        setReadingProgress([]);
+        console.error("Unexpected error in loadData:", error);
+        setError("Terjadi kesalahan saat memuat data.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadData();
@@ -182,15 +156,24 @@ export default function Dashboard() {
       return;
     }
 
+    setError(null);
     const formData = new FormData();
     formData.append("id", ebookId);
+
     try {
-      await deleteEbookAction(formData);
+      const result = await deleteEbookAction(formData);
+      if (result?.error) {
+        setError(result.error);
+        alert(result.error);
+        return;
+      }
       // Refresh the page
       window.location.reload();
     } catch (error) {
       console.error("Error deleting ebook:", error);
-      alert("Gagal menghapus e-book. Silakan coba lagi.");
+      const errorMessage = "Gagal menghapus e-book. Silakan coba lagi.";
+      setError(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -217,6 +200,12 @@ export default function Dashboard() {
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold">Perpustakaan Saya</h1>
             </div>
+            {error && (
+              <div className="bg-red-50 text-sm p-3 px-4 rounded-lg text-red-700 flex gap-2 items-center">
+                <InfoIcon size="14" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="bg-blue-50 text-sm p-3 px-4 rounded-lg text-blue-700 flex gap-2 items-center">
               <InfoIcon size="14" />
               <span>
@@ -235,7 +224,7 @@ export default function Dashboard() {
           </header>
 
           {/* Reading Progress Section */}
-          {readingProgress && readingProgress.length > 0 && (
+          {readingProgress.length > 0 && (
             <section className="bg-white rounded-xl p-6 border shadow-sm">
               <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                 <BookOpen className="w-5 h-5" />
@@ -251,18 +240,18 @@ export default function Dashboard() {
                       <div className="flex gap-3">
                         <img
                           src={
-                            progress.ebooks.cover_image_url ||
+                            progress.ebooks?.cover_image_url ||
                             "/placeholder-book.jpg"
                           }
-                          alt={progress.ebooks.title}
+                          alt={progress.ebooks?.title || "E-book"}
                           className="w-16 h-20 object-cover rounded"
                         />
                         <div className="flex-1">
                           <h3 className="font-medium text-sm mb-1">
-                            {progress.ebooks.title}
+                            {progress.ebooks?.title || "Unknown Title"}
                           </h3>
                           <p className="text-xs text-gray-600 mb-2">
-                            {progress.ebooks.author}
+                            {progress.ebooks?.author || "Unknown Author"}
                           </p>
                           <div className="text-xs text-blue-600">
                             Halaman {progress.current_page} dari{" "}
@@ -341,39 +330,6 @@ export default function Dashboard() {
                           rows={3}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="features_title">Judul Fitur</Label>
-                        <Input
-                          name="features_title"
-                          placeholder="Mengapa Memilih EbookDes?"
-                          defaultValue="Mengapa Memilih EbookDes?"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_email">Email Kontak</Label>
-                        <Input
-                          name="contact_email"
-                          placeholder="support@ebookdes.com"
-                          defaultValue="support@ebookdes.com"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_phone">Telepon Kontak</Label>
-                        <Input
-                          name="contact_phone"
-                          placeholder="+62 21 1234 5678"
-                          defaultValue="+62 21 1234 5678"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="contact_address">Alamat</Label>
-                        <Textarea
-                          name="contact_address"
-                          placeholder="Jl. Teknologi Digital No. 123, Jakarta Selatan"
-                          defaultValue="Jl. Teknologi Digital No. 123, Jakarta Selatan, DKI Jakarta 12345, Indonesia"
-                          rows={2}
-                        />
-                      </div>
                       <Button type="submit" className="w-full">
                         Simpan Pengaturan
                       </Button>
@@ -421,24 +377,6 @@ export default function Dashboard() {
                           name="about_description"
                           placeholder="Platform pembaca e-book digital pertama di Indonesia..."
                           defaultValue="Platform pembaca e-book digital pertama di Indonesia yang didedikasikan untuk menyediakan akses mudah dan nyaman ke ribuan buku berkualitas dalam bahasa Indonesia."
-                          rows={3}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="mission">Misi</Label>
-                        <Textarea
-                          name="mission"
-                          placeholder="Menyediakan platform digital yang mudah diakses..."
-                          defaultValue="Menyediakan platform digital yang mudah diakses untuk membaca e-book berkualitas tinggi, mendukung literasi digital di Indonesia, dan memberikan pengalaman membaca yang menyenangkan bagi semua kalangan."
-                          rows={3}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="vision">Visi</Label>
-                        <Textarea
-                          name="vision"
-                          placeholder="Menjadi platform e-book terdepan di Indonesia..."
-                          defaultValue="Menjadi platform e-book terdepan di Indonesia yang menghubungkan pembaca dengan konten berkualitas, mendorong budaya membaca, dan mendukung perkembangan industri penerbitan digital Indonesia."
                           rows={3}
                         />
                       </div>
@@ -496,10 +434,6 @@ export default function Dashboard() {
                             Pengembangan Diri
                           </SelectItem>
                           <SelectItem value="Religi">Religi</SelectItem>
-                          <SelectItem value="Inspiratif">Inspiratif</SelectItem>
-                          <SelectItem value="Romance">Romance</SelectItem>
-                          <SelectItem value="Teknologi">Teknologi</SelectItem>
-                          <SelectItem value="Bisnis">Bisnis</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
@@ -538,13 +472,6 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
               </div>
-              <div className="mt-4 p-3 bg-blue-100 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>Petunjuk:</strong> Gunakan tombol di atas untuk
-                  menambah e-book baru. Untuk mengedit atau menghapus, gunakan
-                  tombol aksi pada setiap e-book di koleksi di bawah.
-                </p>
-              </div>
             </section>
           )}
 
@@ -562,7 +489,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            {ebooks && ebooks.length > 0 ? (
+            {ebooks.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {ebooks.map((ebook: any) => (
                   <Card
@@ -572,7 +499,7 @@ export default function Dashboard() {
                     <div className="aspect-[3/4] overflow-hidden rounded-t-lg">
                       <img
                         src={ebook.cover_image_url || "/placeholder-book.jpg"}
-                        alt={ebook.title}
+                        alt={ebook.title || "E-book"}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </div>
@@ -585,10 +512,10 @@ export default function Dashboard() {
                         )}
                       </div>
                       <h3 className="font-semibold mb-1 text-gray-900 line-clamp-2">
-                        {ebook.title}
+                        {ebook.title || "Unknown Title"}
                       </h3>
                       <p className="text-gray-600 text-sm mb-2">
-                        oleh {ebook.author}
+                        oleh {ebook.author || "Unknown Author"}
                       </p>
                       {ebook.description && (
                         <p className="text-gray-500 text-xs mb-4 line-clamp-2">
@@ -651,30 +578,14 @@ export default function Dashboard() {
                                       <SelectValue placeholder="Pilih genre" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="Novel">
-                                        Novel
-                                      </SelectItem>
+                                      <SelectItem value="Novel">Novel</SelectItem>
                                       <SelectItem value="Sejarah">
                                         Sejarah
                                       </SelectItem>
                                       <SelectItem value="Pengembangan Diri">
                                         Pengembangan Diri
                                       </SelectItem>
-                                      <SelectItem value="Religi">
-                                        Religi
-                                      </SelectItem>
-                                      <SelectItem value="Inspiratif">
-                                        Inspiratif
-                                      </SelectItem>
-                                      <SelectItem value="Romance">
-                                        Romance
-                                      </SelectItem>
-                                      <SelectItem value="Teknologi">
-                                        Teknologi
-                                      </SelectItem>
-                                      <SelectItem value="Bisnis">
-                                        Bisnis
-                                      </SelectItem>
+                                      <SelectItem value="Religi">Religi</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   <Input
@@ -729,8 +640,7 @@ export default function Dashboard() {
                       <DialogHeader>
                         <DialogTitle>Tambah E-book Baru</DialogTitle>
                         <DialogDescription>
-                          Isi form di bawah untuk menambah e-book baru ke
-                          koleksi.
+                          Isi form di bawah untuk menambah e-book baru ke koleksi.
                         </DialogDescription>
                       </DialogHeader>
                       <form action={createEbookAction} className="space-y-4">
@@ -752,12 +662,6 @@ export default function Dashboard() {
                               Pengembangan Diri
                             </SelectItem>
                             <SelectItem value="Religi">Religi</SelectItem>
-                            <SelectItem value="Inspiratif">
-                              Inspiratif
-                            </SelectItem>
-                            <SelectItem value="Romance">Romance</SelectItem>
-                            <SelectItem value="Teknologi">Teknologi</SelectItem>
-                            <SelectItem value="Bisnis">Bisnis</SelectItem>
                           </SelectContent>
                         </Select>
                         <Input
@@ -779,165 +683,6 @@ export default function Dashboard() {
               </div>
             )}
           </section>
-
-          {/* Admin Panel */}
-          {isAdmin && (
-            <section className="bg-white rounded-xl p-6 border shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Panel Admin
-              </h2>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                <p className="text-yellow-800 text-sm">
-                  <strong>Selamat!</strong> Anda memiliki akses admin. Anda
-                  dapat mengelola semua e-book dalam sistem.
-                </p>
-              </div>
-              {ebooks && ebooks.length > 0 && (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Judul</TableHead>
-                        <TableHead>Penulis</TableHead>
-                        <TableHead>Genre</TableHead>
-                        <TableHead>Dibuat</TableHead>
-                        <TableHead>Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {ebooks.map((ebook: any) => (
-                        <TableRow key={ebook.id}>
-                          <TableCell className="font-medium">
-                            {ebook.title}
-                          </TableCell>
-                          <TableCell>{ebook.author}</TableCell>
-                          <TableCell>
-                            {ebook.genre && (
-                              <span className="inline-block px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full">
-                                {ebook.genre}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(ebook.created_at).toLocaleDateString(
-                              "id-ID",
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Link href={`/read/${ebook.id}`}>
-                                <Button size="sm" variant="outline">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </Link>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm" variant="outline">
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-md">
-                                  <DialogHeader>
-                                    <DialogTitle>Edit E-book</DialogTitle>
-                                    <DialogDescription>
-                                      Edit informasi e-book di bawah ini.
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <form
-                                    action={updateEbookAction}
-                                    className="space-y-4"
-                                  >
-                                    <input
-                                      type="hidden"
-                                      name="id"
-                                      value={ebook.id}
-                                    />
-                                    <Input
-                                      name="title"
-                                      placeholder="Judul e-book"
-                                      defaultValue={ebook.title}
-                                      required
-                                    />
-                                    <Input
-                                      name="author"
-                                      placeholder="Penulis"
-                                      defaultValue={ebook.author}
-                                      required
-                                    />
-                                    <Textarea
-                                      name="description"
-                                      placeholder="Deskripsi"
-                                      defaultValue={ebook.description || ""}
-                                    />
-                                    <Select
-                                      name="genre"
-                                      defaultValue={ebook.genre || ""}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Pilih genre" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="Novel">
-                                          Novel
-                                        </SelectItem>
-                                        <SelectItem value="Sejarah">
-                                          Sejarah
-                                        </SelectItem>
-                                        <SelectItem value="Pengembangan Diri">
-                                          Pengembangan Diri
-                                        </SelectItem>
-                                        <SelectItem value="Religi">
-                                          Religi
-                                        </SelectItem>
-                                        <SelectItem value="Inspiratif">
-                                          Inspiratif
-                                        </SelectItem>
-                                        <SelectItem value="Romance">
-                                          Romance
-                                        </SelectItem>
-                                        <SelectItem value="Teknologi">
-                                          Teknologi
-                                        </SelectItem>
-                                        <SelectItem value="Bisnis">
-                                          Bisnis
-                                        </SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <Input
-                                      name="cover_image_url"
-                                      placeholder="URL gambar sampul"
-                                      defaultValue={ebook.cover_image_url || ""}
-                                    />
-                                    <Input
-                                      name="pdf_url"
-                                      placeholder="URL file PDF"
-                                      defaultValue={ebook.pdf_url}
-                                      required
-                                    />
-                                    <Button type="submit" className="w-full">
-                                      Update E-book
-                                    </Button>
-                                  </form>
-                                </DialogContent>
-                              </Dialog>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleDeleteEbook(ebook.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </section>
-          )}
         </div>
       </main>
     </>
