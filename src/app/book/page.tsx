@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { createClient, createServiceClient } from "../../../supabase/server";
 import {
   Card,
