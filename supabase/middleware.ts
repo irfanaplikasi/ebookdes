@@ -35,12 +35,35 @@ export const updateSession = async (request: NextRequest) => {
             });
           },
         },
-      }
+      },
     );
 
     // This will refresh session if expired - required for Server Components
     // https://supabase.com/docs/guides/auth/server-side/nextjs
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    // Handle refresh token errors gracefully
+    if (
+      error &&
+      (error.message?.includes("refresh_token_not_found") ||
+        error.message?.includes("Invalid Refresh Token"))
+    ) {
+      // Clear any existing auth cookies
+      response.cookies.delete("sb-access-token");
+      response.cookies.delete("sb-refresh-token");
+
+      // Redirect to sign-in if not already on an auth page
+      if (
+        !request.nextUrl.pathname.startsWith("/sign-in") &&
+        !request.nextUrl.pathname.startsWith("/sign-up") &&
+        !request.nextUrl.pathname.startsWith("/forgot-password")
+      ) {
+        return NextResponse.redirect(new URL("/sign-in", request.url));
+      }
+    }
 
     // protected routes
     if (request.nextUrl.pathname.startsWith("/dashboard") && error) {

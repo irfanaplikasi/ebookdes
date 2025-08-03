@@ -10,7 +10,11 @@ export const signInWithGoogle = createAsyncThunk(
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/api/auth/google`,
+          redirectTo: `${window.location.origin}/api/auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       });
 
@@ -40,7 +44,7 @@ export const signInWithGoogle = createAsyncThunk(
         "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
       );
     }
-  }
+  },
 );
 
 export const signOut = createAsyncThunk(
@@ -58,7 +62,7 @@ export const signOut = createAsyncThunk(
     } catch (err) {
       return rejectWithValue("Gagal keluar dari akun.");
     }
-  }
+  },
 );
 
 export const getCurrentUser = createAsyncThunk<User | null, void>(
@@ -98,5 +102,5 @@ export const getCurrentUser = createAsyncThunk<User | null, void>(
       console.error("Get current user error:", err);
       return rejectWithValue("Gagal mendapatkan data pengguna.");
     }
-  }
+  },
 );

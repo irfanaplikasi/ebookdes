@@ -365,7 +365,11 @@ export const signInWithGoogleAction = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${origin}/api/auth/google`,
+        redirectTo: `${origin}/api/auth/callback`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
       },
     });
 
@@ -416,7 +420,6 @@ export const makeUserAdminAction = async (formData: FormData) => {
     "Admin creation through UI is disabled for security reasons",
   );
 };
-
 
 export const updatePageContentAction = async (formData: FormData) => {
   const supabase = await createClient();
