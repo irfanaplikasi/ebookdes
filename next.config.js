@@ -1,20 +1,23 @@
 /** @type {import('next').NextConfig} */
-
 const nextConfig = {
-    images: {
-        domains: ['images.unsplash.com'],
-    }
+  images: {
+    domains: ['images.unsplash.com'],
+  },
+  experimental: {
+    // Inisialisasi experimental sebagai objek kosong untuk keamanan
+    swcPlugins: [],
+  },
 };
 
-if (process.env.NEXT_PUBLIC_TEMPO) {
-    nextConfig["experimental"] = {
-        // NextJS 13.4.8 up to 14.1.3:
-        // swcPlugins: [[require.resolve("tempo-devtools/swc/0.86"), {}]],
-        // NextJS 14.1.3 to 14.2.11:
-        swcPlugins: [[require.resolve("tempo-devtools/swc/0.90"), {}]]
-
-        // NextJS 15+ (Not yet supported, coming soon)
-    }
+// Aktifkan tempo-devtools hanya jika TEMPO diatur
+if (process.env.TEMPO) {
+  // Pilih versi swcPlugins berdasarkan versi Next.js atau kebutuhan proyek
+  nextConfig.experimental.swcPlugins = [
+    [
+      require.resolve('tempo-devtools/swc/0.90'),
+      {},
+    ],
+  ];
 }
 
 module.exports = nextConfig;
