@@ -3,7 +3,7 @@
 import { encodedRedirect } from "@/utils/utils";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "../../supabase/server";
+import { createClient, createServiceClient } from "../../../supabase/server";
 
 // Tipe untuk hasil kembalian Server Actions
 type ActionResult = {
