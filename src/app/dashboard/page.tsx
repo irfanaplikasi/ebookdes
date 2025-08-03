@@ -3,7 +3,7 @@
 import { encodedRedirect } from "@/utils/utils";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient, createServiceClient } from "../../supabase/server";
+import { createClient } from "../../supabase/server";
 
 // Tipe untuk hasil kembalian Server Actions
 type ActionResult = {
@@ -12,7 +12,9 @@ type ActionResult = {
   message?: string;
 };
 
-export const signUpAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const signUpAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString() || "";
@@ -52,11 +54,13 @@ export const signUpAction = async (formData: FormData): Promise<ActionResult | v
   return encodedRedirect(
     "success",
     "/sign-up",
-    "Thanks for signing up! Please check your email for a verification link."
+    "Thanks for signing up! Please check your email for a verification link.",
   );
 };
 
-export const signInAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const signInAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const supabase = await createClient();
@@ -81,7 +85,9 @@ export const signInAction = async (formData: FormData): Promise<ActionResult | v
   return redirect("/dashboard");
 };
 
-export const forgotPasswordAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const forgotPasswordAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const email = formData.get("email")?.toString();
   const supabase = await createClient();
   const origin = headers().get("origin");
@@ -111,11 +117,13 @@ export const forgotPasswordAction = async (formData: FormData): Promise<ActionRe
   return encodedRedirect(
     "success",
     "/forgot-password",
-    "Check your email for a link to reset your password."
+    "Check your email for a link to reset your password.",
   );
 };
 
-export const resetPasswordAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const resetPasswordAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const supabase = await createClient();
   const password = formData.get("password")?.toString();
   const confirmPassword = formData.get("confirmPassword")?.toString();
@@ -142,7 +150,11 @@ export const resetPasswordAction = async (formData: FormData): Promise<ActionRes
     };
   }
 
-  return encodedRedirect("success", "/protected/reset-password", "Password updated");
+  return encodedRedirect(
+    "success",
+    "/protected/reset-password",
+    "Password updated",
+  );
 };
 
 export const signOutAction = async (): Promise<void> => {
@@ -151,7 +163,9 @@ export const signOutAction = async (): Promise<void> => {
   return redirect("/sign-in");
 };
 
-export const createEbookAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const createEbookAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const supabase = await createClient();
   const serviceSupabase = createServiceClient();
 
@@ -174,7 +188,10 @@ export const createEbookAction = async (formData: FormData): Promise<ActionResul
     .single();
 
   if (roleError || userRole?.role !== "admin") {
-    console.error("Role check error:", roleError?.message || "User is not admin");
+    console.error(
+      "Role check error:",
+      roleError?.message || "User is not admin",
+    );
     return {
       error: "Access denied. Admin role required.",
     };
@@ -215,10 +232,16 @@ export const createEbookAction = async (formData: FormData): Promise<ActionResul
     };
   }
 
-  return encodedRedirect("success", "/dashboard", "E-book created successfully");
+  return encodedRedirect(
+    "success",
+    "/dashboard",
+    "E-book created successfully",
+  );
 };
 
-export const updateEbookAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const updateEbookAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const supabase = await createClient();
   const serviceSupabase = createServiceClient();
 
@@ -241,7 +264,10 @@ export const updateEbookAction = async (formData: FormData): Promise<ActionResul
     .single();
 
   if (roleError || userRole?.role !== "admin") {
-    console.error("Role check error:", roleError?.message || "User is not admin");
+    console.error(
+      "Role check error:",
+      roleError?.message || "User is not admin",
+    );
     return {
       error: "Access denied. Admin role required.",
     };
@@ -286,10 +312,16 @@ export const updateEbookAction = async (formData: FormData): Promise<ActionResul
     };
   }
 
-  return encodedRedirect("success", "/dashboard", "E-book updated successfully");
+  return encodedRedirect(
+    "success",
+    "/dashboard",
+    "E-book updated successfully",
+  );
 };
 
-export const deleteEbookAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const deleteEbookAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   try {
     const supabase = await createClient();
     const serviceSupabase = createServiceClient();
@@ -318,11 +350,14 @@ export const deleteEbookAction = async (formData: FormData): Promise<ActionResul
       .single();
 
     if (roleError || userRole?.role !== "admin") {
-      console.error("Role check error:", roleError?.message || "User is not admin");
+      console.error(
+        "Role check error:",
+        roleError?.message || "User is not admin",
+      );
       return encodedRedirect(
         "error",
         "/dashboard",
-        "Access denied. Admin role required."
+        "Access denied. Admin role required.",
       );
     }
 
@@ -335,7 +370,8 @@ export const deleteEbookAction = async (formData: FormData): Promise<ActionResul
       };
     }
 
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(id)) {
       console.error("Invalid ebook ID format:", id);
       return {
@@ -388,7 +424,9 @@ export const deleteEbookAction = async (formData: FormData): Promise<ActionResul
   }
 };
 
-export const updateReadingProgressAction = async (formData: FormData): Promise<ActionResult> => {
+export const updateReadingProgressAction = async (
+  formData: FormData,
+): Promise<ActionResult> => {
   const supabase = await createClient();
 
   const {
@@ -436,51 +474,56 @@ export const updateReadingProgressAction = async (formData: FormData): Promise<A
   return { success: true };
 };
 
-export const signInWithGoogleAction = async (): Promise<ActionResult | void> => {
-  const supabase = await createClient();
-  const origin = headers().get("origin");
+export const signInWithGoogleAction =
+  async (): Promise<ActionResult | void> => {
+    const supabase = await createClient();
+    const origin = headers().get("origin");
 
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${origin}/api/auth/google`,
-      },
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/api/auth/google`,
+        },
+      });
 
-    if (error) {
-      console.error("Google OAuth Error:", error);
+      if (error) {
+        console.error("Google OAuth Error:", error);
+        return {
+          error:
+            "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
+        };
+      }
+
+      if (data.url) {
+        return redirect(data.url);
+      }
+
+      return {
+        error: "Gagal mengarahkan ke Google Sign-In",
+      };
+    } catch (error: any) {
+      console.error("Google Sign-In Exception:", error);
       return {
         error:
           "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
       };
     }
+  };
 
-    if (data.url) {
-      return redirect(data.url);
-    }
-
-    return {
-      error: "Gagal mengarahkan ke Google Sign-In",
-    };
-  } catch (error: any) {
-    console.error("Google Sign-In Exception:", error);
-    return {
-      error:
-        "Google Sign-In belum dikonfigurasi. Silakan gunakan email dan password untuk masuk.",
-    };
-  }
-};
-
-export const makeUserAdminAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const makeUserAdminAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   return encodedRedirect(
     "error",
     "/dashboard",
-    "Admin creation through UI is disabled for security reasons"
+    "Admin creation through UI is disabled for security reasons",
   );
 };
 
-export const updatePageContentAction = async (formData: FormData): Promise<ActionResult | void> => {
+export const updatePageContentAction = async (
+  formData: FormData,
+): Promise<ActionResult | void> => {
   const supabase = await createClient();
   const serviceSupabase = createServiceClient();
 
@@ -503,7 +546,10 @@ export const updatePageContentAction = async (formData: FormData): Promise<Actio
     .single();
 
   if (roleError || userRole?.role !== "admin") {
-    console.error("Role check error:", roleError?.message || "User is not admin");
+    console.error(
+      "Role check error:",
+      roleError?.message || "User is not admin",
+    );
     return {
       error: "Access denied. Admin role required.",
     };
@@ -548,6 +594,6 @@ export const updatePageContentAction = async (formData: FormData): Promise<Actio
   return encodedRedirect(
     "success",
     "/dashboard",
-    `Pengaturan ${pageType} berhasil diperbarui`
+    `Pengaturan ${pageType} berhasil diperbarui`,
   );
 };
